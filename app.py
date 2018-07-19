@@ -2,7 +2,6 @@ import logging
 import os
 from datetime import datetime, timedelta
 import json
-import urllib.request
 import sys
 
 from flask import Flask, request, make_response, jsonify
@@ -14,6 +13,7 @@ from rq.job import Job
 from worker import conn
 
 from tasks import run_scripts
+from handlers import parse_post
 
 app = Flask(__name__)
 app.config.from_object(app_config)
@@ -58,26 +58,19 @@ def handle_payload_exception(error):
     response.status_code = error.status_code
     return response
 
-def parsePost(post, branch):
+@app.route('/hooks/<site_type>/<branch_name>', methods=['POST'])
+def execute(site_type, branch_name):
+    post = request.get_json()
 
-    if 'ref' not in post.keys():
-        return []
+    content_type = request.headers.get('Content-Type')
 
-    # Parse webhook data for internal variables
-    post['repo'] = post['repository']['name']
-    post['branch'] = post['ref'].replace('refs/heads/', '')
-    post['owner'] = post['repository']['owner']['name']
-
-    # End early if not permitted account
-    if post['owner'] not in app_config.ACCOUNTS:
-        raise PayloadException('Account {user} not permitted'.format(user=post['owner']),
-                               status_code=403)
-
-    # End early if not permitted branch
-
-    if post['branch'] != branch:
-        raise PayloadException('Branch {branch} not permitted'.format(branch=post['branch']),
-                               status_code=403)
+    if content_type != 'application/json':
+        raise ServerError('handling {content_type} is not implemented'.format(content_type=content_type),
+                          status_code=501)
+        
+    resp = {'status': 'ok'}
+    
+    post, hostname = parse_post(post, branch_name)
 
     giturl = 'git@{server}:{owner}/{repo}.git'\
                  .format(server=app_config.GH_SERVER,
@@ -96,60 +89,14 @@ def parsePost(post, branch):
                         owner=post['owner'],
                         repo=post['repo'],
                         branch=post['branch'])
-    hostname = None
-    if app_config.CONFIG_NGINX:
-        cname_url = 'https://api.github.com/repos/{owner}/{repo}/contents/CNAME?access_token={token}'
-        cname_url = cname_url.format(owner=post['owner'],
-                                     repo=post['repo'],
-                                     token=app_config.GH_TOKEN)
-
-        try:
-            cname_resp = urllib.request.urlopen(cname_url)
-        except urllib.error.HTTPError as e:
-            raise PayloadException('{url}: {reason}'.format(url=cname_url, reason=e.reason),
-                                   status_code=e.code)
-        else:
-            data = cname_resp.read()
-            encoding = cname_resp.info().get_content_charset('utf-8')
-            resp = json.loads(data.decode(encoding))
-            
-            download_url = resp['download_url']
-
-            cname = urllib.request.urlopen(download_url)
-            
-            hostname = cname.read()
-                
-    script_args = [
-        post['repo'],
-        post['branch'],
-        post['owner'],
-        giturl,
-        source,
-        build
-    ]
-
-    return (script_args, hostname)
-
-@app.route('/hooks/<site_type>/<branch_name>', methods=['POST'])
-def execute(site_type, branch_name):
-    post = request.get_json()
-
-    content_type = request.headers.get('Content-Type')
-
-    if content_type != 'application/json':
-        raise ServerError('handling {content_type} is not implemented'.format(content_type=content_type),
-                          status_code=501)
-        
-    resp = {'status': 'ok'}
-    
-    script_args, hostname = parsePost(post, branch_name)
 
     venv_bin_dir = os.path.dirname(sys.executable)
         
     if hostname and app_config.CONFIG_NGINX:
-        run_scripts.delay(app_config.NGINX_SCRIPT, [hostname, script_args[1], venv_bin_dir])
+        q.enqueue_call(func=run_scripts, args = (app_config.NGINX_SCRIPT, [hostname, post['repo'], venv_bin_dir]))
         
-    if script_args:        
+    if post:
+        script_args = [post['repo'], post['branch'], post['owner'], giturl, source, build]
         try:
             scripts = app_config.SCRIPTS[site_type]
         except KeyError:
