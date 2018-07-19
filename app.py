@@ -70,7 +70,6 @@ def execute(site_type, branch_name):
     if content_type != 'application/json':
         raise ServerError('handling {content_type} is not implemented'.format(content_type=content_type),
                           status_code=501)
-        
 
     if app_config.SECRET:
         try:    
