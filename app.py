@@ -1,3 +1,4 @@
+import logging
 import os
 from datetime import datetime, timedelta
 import json
@@ -136,7 +137,8 @@ def execute(site_type, branch_name):
     content_type = request.headers.get('Content-Type')
 
     if content_type != 'application/json':
-        raise ServerError('handling {content_type} is not implemented'.format(content_type=content_type), status_code=501)
+        raise ServerError('handling {content_type} is not implemented'.format(content_type=content_type),
+                          status_code=501)
         
     resp = {'status': 'ok'}
     
@@ -166,3 +168,8 @@ def execute(site_type, branch_name):
 if __name__ == "__main__":
     port = int(os.environ.get('PORT', 5003))
     app.run(host='0.0.0.0', port=port, debug=True)
+
+if __name__ != "__main__":
+    gunicorn_logger = logging.getLogger("gunicorn.error")
+    app.logger.handlers = gunicorn_logger.handlers
+    app.logger.setLevel(gunicorn_logger.level)

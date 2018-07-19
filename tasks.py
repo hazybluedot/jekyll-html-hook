@@ -1,6 +1,9 @@
+import logging
+log = logging.getLogger('app.task')
+
 import subprocess
 
-from app_config import SENTRY_DSN, REDIS_QUEUE_KEY
+from app_config import SENTRY_DSN
 
 from raven import Client
 
@@ -11,5 +14,5 @@ def run_scripts(scripts, args):
         try:
             subprocess.check_call([s] + args)
         except subprocess.CalledProcessError as e:
-            print('EXCEPTION', e)
+            log.error('EXCEPTION: {}'.format(e.message))
             sentry.captureException()
