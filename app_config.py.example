@@ -7,12 +7,12 @@ CONFIG_NGINX = True
 NGINX_SCRIPT = ["./scripts/config-nginx.sh",]
 
 SCRIPTS = {
-    'jekyll': ["./scripts/build-jekyll.sh", "./scripts/publish-jekyll.sh"],
+    'jekyll': ["./scripts/git-fetch.sh", "./scripts/build-jekyll.sh", "./scripts/publish.sh"],
+    'hugo': ["./scripts/git-fetch.sh", "./scripts/build-hugo.sh", "./scripts/publish.sh"],
     'static': ["./scripts/build-static.sh", "./scripts/publish-static.sh"],
 }
 
 ACCOUNTS = ["datamade"]
 
 SENTRY_DSN = ''
-REDIS_QUEUE_KEY = 'REDIS?'
 
