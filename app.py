@@ -89,31 +89,39 @@ def parsePost(post, branch):
                         owner=post['owner'],
                         repo=post['repo'],
                         branch=post['branch'])
-    
-    cname_url = 'https://api.github.com/repos/{owner}/{repo}/contents/CNAME?access_token={token}'
-    cname_url = cname_url.format(owner=post['owner'],
-                                 repo=post['repo'],
-                                 token=app_config.GH_TOKEN)
+    hostname = None
+    if app_config.CONFIG_NGINX:
+        cname_url = 'https://api.github.com/repos/{owner}/{repo}/contents/CNAME?access_token={token}'
+        cname_url = cname_url.format(owner=post['owner'],
+                                     repo=post['repo'],
+                                     token=app_config.GH_TOKEN)
 
-    try:
-        urllib.request.urlopen(cname_url)
-    except urllib.error.HTTPError as e:
-        raise PayloadException('{url}: {reason}'.format(url=cname_url, reason=e.reason),
-                               status_code=e.code)
-    
-    venv_bin_dir = os.path.dirname(sys.executable)
-    
+        try:
+            cname_resp = urllib.request.urlopen(cname_url)
+        except urllib.error.HTTPError as e:
+            raise PayloadException('{url}: {reason}'.format(url=cname_url, reason=e.reason),
+                                   status_code=e.code)
+        else:
+            data = cname_resp.read()
+            encoding = cname_resp.info().get_content_charset('utf-8')
+            resp = json.loads(data.decode(encoding))
+            
+            download_url = resp['download_url']
+
+            cname = urllib.request.urlopen(download_url)
+            
+            hostname = cname.read()
+                
     script_args = [
         post['repo'],
         post['branch'],
         post['owner'],
         giturl,
         source,
-        build,
-        venv_bin_dir,
+        build
     ]
 
-    return script_args
+    return (script_args, hostname)
 
 @app.route('/hooks/<site_type>/<branch_name>', methods=['POST'])
 def execute(site_type, branch_name):
@@ -126,10 +134,14 @@ def execute(site_type, branch_name):
         
     resp = {'status': 'ok'}
     
-    script_args = parsePost(post, branch_name)
+    script_args, hostname = parsePost(post, branch_name)
 
-    if script_args:
+    venv_bin_dir = os.path.dirname(sys.executable)
         
+    if hostname and app_config.CONFIG_NGINX:
+        run_scripts.delay(app_config.NGINX_SCRIPT, [hostname, script_args[1], venv_bin_dir])
+        
+    if script_args:        
         try:
             scripts = app_config.SCRIPTS[site_type]
         except KeyError:

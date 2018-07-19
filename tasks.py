@@ -40,19 +40,12 @@ def queuefunc(f):
 
 @queuefunc
 def run_scripts(scripts, args):
-    build, publish = scripts
-
-    try:
-        subprocess.check_call([build] + args)
-    except subprocess.CalledProcessError as e:
-        print('EXCEPTION', e)
-        sentry.captureException()
-
-    try:
-        subprocess.check_call([publish] + args)
-    except subprocess.CalledProcessError as e:
-        print('EXCEPTION', e)
-        sentry.captureException()
+    for s in scripts:
+        try:
+            subprocess.check_call([s] + args)
+        except subprocess.CalledProcessError as e:
+            print('EXCEPTION', e)
+            sentry.captureException()
 
 def queue_daemon():
     print('Listening for work ... ')
