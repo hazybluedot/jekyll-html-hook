@@ -1,0 +1,5 @@
+[Unit]
+Description=services for static site
+Requires=multi-user.target
+After=multi-user.target
+AllowIsolate=yes

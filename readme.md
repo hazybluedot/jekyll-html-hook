@@ -36,7 +36,7 @@ to remember is that this app requires at least Python 3.4.
 Once you have virtualenvwrapper set up,
 
     mkvirtualenv jekyll-html-hook
-    git clone https://github.com/datamade/jekyll-html-hook.git
+    git clone https://github.com/hazybluedot/jekyll-html-hook.git
     cd jekyll-html-hook
     pip install -r requirements.txt
 
@@ -46,7 +46,7 @@ Afterwards, whenever you want to work on jekyll-html-hook,
 
 ## Configuration
 
-Copy `config.sample.json` to `config.json` in the root directory and customize:
+Copy `app_config.py.example` to `app_config.py` in the root directory and customize:
 
     cp app_config.py.example app_config.py
     vim app_config.py
@@ -63,8 +63,6 @@ are used to build and/or deploy those sites.
 - `ACCOUNTS` A list of organizations whose repositories can be used with this
 server.
 - `SENTRY_DSN` Optional. DSN to configure [Sentry logging](https://getsentry.com).
-- `REDIS_QUEUE_KEY` A unique string used to identify messages in Redis that the
-app should pay attention to.
 
 You can also adjust the default scripts in the `scripts` directory to suit your
 workflow. By default, they generate a site with Jekyll or just copy static HTML
@@ -105,6 +103,13 @@ There are two processes, one to handle incoming webhooks and one to actually gen
 
 As an an example of how you might daemonize the app and worker, an example
 Supervisor configuration file [is in the `scripts` folder](https://github.com/datamade/jekyll-html-hook/blob/master/scripts/supervisor_conf.example).
+
+## Run in production
+
+For production-like environments we need something a little more robust than running the app and worker manually. Files in `etc` contain templates for systemd services that will start the main app via gunicorn and the worker process. For convenience `install.sh` is provided which will write the files to the appropriate system directories. Be sure to edit `install.sh` first to set the three variables appropriately:
+
+- `LOGPATH` The path to the logging directory. It should be writable by the user the service will run as.
+- `VENV_BIN` The path to the virtual environment `bin` directory. Python and gunicorn will be run from this location.
 
 ## Other random stuff
 

@@ -1,0 +1,14 @@
+[Unit]
+Description=Worker instance for static site backend
+After=network.target
+
+[Service]
+User=USER
+Group=nginx
+StandardOutput=syslog
+StandardError=syslog
+SyslogIdentifier=ssg-worker
+ExecStart=VENV_BIN/python worker.py
+
+[Install]
+WantedBy=ssg-services.target

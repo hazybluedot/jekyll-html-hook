@@ -1,0 +1,14 @@
+[Unit]
+Description=Gunicorn instance to serve flask app for webhook endpoint
+After=network.target
+
+[Service]
+User=dmaczka
+Group=nginx
+ExecStart=/home/dmaczka/.virtualenvs/hugo-web-hook/bin/gunicorn --workers 3 --bind unix:/run/gunicorn/blog-services.sock\
+ --access-logfile=/srv/www/hazyblue.me/logs/gunicorn.access.log\
+ --error-logfile=/srv/www/hazyblue.me/logs/gunicorn.error.log\
+ --log-level=debug -m 007 app:app
+
+[Install]
+WantedBy=ssg-services.target
