@@ -8,6 +8,10 @@ from flask import Flask, request, make_response, jsonify
 from raven.contrib.flask import Sentry
 import app_config
 
+from rq import Queue
+from rq.job import Job
+from worker import conn
+
 from tasks import run_scripts
 
 app = Flask(__name__)
@@ -16,6 +20,8 @@ app.config.from_object(app_config)
 app.url_map.strict_slashes = False
 
 sentry = Sentry(app, dsn=app_config.SENTRY_DSN)
+
+q = Queue(connection=conn)
 
 # expects GeoJSON object as a string
 # client will need to use JSON.stringify() or similar
@@ -148,7 +154,9 @@ def execute(site_type, branch_name):
             raise ServerError("No script file defined for '{0}' in config.".format(site_type),
                         status_code=501)
         else:
-            run_scripts.delay(scripts, script_args)
+            job = q.enqueue_call(
+                func=run_scripts, args = (scripts, script_args), result_ttl = 5000
+            )
 
     response = make_response(json.dumps(resp), 202)
     response.headers['Content-Type'] = 'application/json'
