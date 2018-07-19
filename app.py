@@ -8,6 +8,9 @@ from flask import Flask, request, make_response, jsonify
 from raven.contrib.flask import Sentry
 import app_config
 
+import hmac
+from hashlib import sha1
+
 from rq import Queue
 from rq.job import Job
 from worker import conn
@@ -68,6 +71,21 @@ def execute(site_type, branch_name):
         raise ServerError('handling {content_type} is not implemented'.format(content_type=content_type),
                           status_code=501)
         
+
+    if app_config.SECRET:
+        try:    
+            gh_signature = request.headers['X_HUB_SIGNATURE']
+        except KeyError as e:
+            raise InvalidUsage('HTTP header X-Hub-Signature is missing', status_code=403)
+    
+        sha_name, signature = gh_signature.split('=')
+        if sha_name != 'sha1':
+            raise ServerError('{sha_name} not implemented'.format(sha_name=sha_name), 501)
+
+        mac = hmac.new(bytes(app_config.SECRET, 'latin1'), msg=request.data, digestmod='sha1')
+        if not hmac.compare_digest(str(mac.hexdigest()), str(signature)):
+            raise InvalidUsage('hash digests don\'t match', 403)
+
     resp = {'status': 'ok'}
     
     post, hostname = parse_post(post, branch_name)
