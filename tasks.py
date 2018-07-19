@@ -14,5 +14,6 @@ def run_scripts(scripts, args):
         try:
             subprocess.check_call([s] + args)
         except subprocess.CalledProcessError as e:
-            log.error('EXCEPTION: {}'.format(e.message))
+            log.error('EXCEPTION: {}'.format(e))
             sentry.captureException()
+            raise e
